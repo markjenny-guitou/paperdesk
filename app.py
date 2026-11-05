@@ -35,6 +35,7 @@ DOWNLOADS = DATA / 'papers'
 DOWNLOADS.mkdir(exist_ok=True)
 DB = DATA / 'library.sqlite3'
 PORT = int(os.environ.get('PAPERDESK_PORT', '8766'))
+DEPLOYMENT = os.environ.get('PAPERDESK_DEPLOYMENT', 'local')
 SOURCES = {'openalex': 'OpenAlex', 'crossref': 'Crossref', 'arxiv': 'arXiv',
            'pubmed': 'PubMed', 'semantic': 'Semantic Scholar', 'europepmc': 'Europe PMC'}
 JOBS: dict[str, dict] = {}
@@ -715,7 +716,8 @@ class Handler(SimpleHTTPRequestHandler):
         if route == '/api/status':
             with connect() as conn:
                 count = conn.execute('SELECT COUNT(*) FROM papers WHERE favorite=1').fetchone()[0]
-            return self.send_json(dict(ok=True, app='PaperDesk', root=str(ROOT), favorites=count, sources=SOURCES, token=AUTH_TOKEN))
+            return self.send_json(dict(ok=True, app='PaperDesk', displayName='豪哥论文', deployment=DEPLOYMENT,
+                                       root=str(ROOT), favorites=count, sources=SOURCES, token=AUTH_TOKEN))
         if route == '/api/history':
             with connect() as conn:
                 rows = conn.execute('SELECT id,query,status,created_at,options,snapshot FROM runs ORDER BY created_at DESC LIMIT 16').fetchall()

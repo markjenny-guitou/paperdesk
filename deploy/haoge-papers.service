@@ -1,0 +1,28 @@
+[Unit]
+Description=Haoge Papers literature search
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=haogepapers
+Group=haogepapers
+WorkingDirectory=/opt/haoge-papers
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONUTF8=1
+Environment=PAPERDESK_PORT=8766
+Environment=PAPERDESK_DATA=/var/lib/haoge-papers
+Environment=PAPERDESK_DEPLOYMENT=server
+ExecStart=/opt/haoge-papers/.venv/bin/python -u /opt/haoge-papers/app.py
+Restart=on-failure
+RestartSec=4
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/haoge-papers
+MemoryMax=512M
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

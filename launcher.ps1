@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet('Start', 'Stop')]
     [string]$Action = 'Start',
     [ValidateRange(1, 65535)]
@@ -51,7 +51,7 @@ function Get-LocalStatus {
 try {
     if ($Action -eq 'Stop') {
         if (-not (Test-Path -LiteralPath $statePath)) {
-            Write-Host "No launcher-managed PaperDesk process on port $Port."
+            Write-Host "No launcher-managed Haoge Papers process on port $Port."
             exit 0
         }
         $state = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -59,7 +59,7 @@ try {
         $server = Get-Process -Id $serverId -ErrorAction SilentlyContinue
         if ($null -eq $server) {
             Remove-Item -LiteralPath $statePath
-            Write-Host 'PaperDesk is already stopped.'
+            Write-Host 'Haoge Papers is already stopped.'
             exit 0
         }
         $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $serverId"
@@ -86,7 +86,7 @@ try {
         if (-not $server.HasExited) { Stop-Process -Id $serverId -ErrorAction Stop }
         $server.WaitForExit(5000) | Out-Null
         Remove-Item -LiteralPath $statePath
-        Write-Host "PaperDesk stopped (port $Port)."
+        Write-Host "Haoge Papers stopped (port $Port)."
         exit 0
     }
 
@@ -103,7 +103,7 @@ try {
         if ($null -eq $status -or -not $status.ok -or $status.root -ine $expectedProjectRoot) {
             throw "Port $Port is occupied by another service. Use -Port 8767 to choose another port."
         }
-        Write-Host "PaperDesk is already running: $baseUrl"
+        Write-Host "Haoge Papers is already running: $baseUrl"
         if (-not $NoBrowser) { Start-Process $baseUrl }
         exit 0
     }
@@ -126,10 +126,10 @@ try {
     $deadline = [DateTime]::UtcNow.AddSeconds(40)
     do {
         $server.Refresh()
-        if ($server.HasExited) { throw "PaperDesk exited. Check $stderrPath" }
+        if ($server.HasExited) { throw "Haoge Papers exited. Check $stderrPath" }
         $status = Get-LocalStatus
         if ($null -ne $status -and $status.ok) {
-            Write-Host "PaperDesk is ready: $baseUrl"
+            Write-Host "Haoge Papers is ready: $baseUrl"
             Write-Host 'Use stop.bat to stop the background server.'
             if (-not $NoBrowser) { Start-Process $baseUrl }
             exit 0

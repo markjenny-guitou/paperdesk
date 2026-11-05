@@ -2,13 +2,13 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="论文雷达，本地运行的多源文献检索与收藏工作台。">
-  <title>论文雷达 · PaperDesk</title>
+  <meta name="description" content="豪哥论文，多源文献检索与收藏工作台。">
+  <title>豪哥论文</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
 </head>
 <body>
-<header class="topbar"><a class="brand" href="/" aria-label="论文雷达首页"><span class="brand-mark">p<span>·</span></span><span>论文雷达 <small>PAPERDESK</small></span></a>
+<header class="topbar"><a class="brand" href="/" aria-label="豪哥论文首页"><span class="brand-mark">h<span>·</span></span><span>豪哥论文 <small>HAOGE PAPERS</small></span></a>
   <nav aria-label="主导航"><button class="nav-button active" id="nav-search">发现论文</button><button class="nav-button" id="nav-library">我的收藏 <span id="favorite-count">0</span></button></nav>
   <div class="local-badge"><i></i> 本地工作空间</div>
 </header>
@@ -41,12 +41,12 @@
       </section>
     </section>
 
-    <aside class="sidebar"><section class="side-card history-card"><div class="side-heading"><h2>最近检索</h2><span>本地保存</span></div><div id="history-list"><p class="side-empty">从第一个研究问题开始。<br>检索记录会自动留在这里。</p></div></section>
+    <aside class="sidebar"><section class="side-card history-card"><div class="side-heading"><h2>最近检索</h2><span id="history-storage-label">本地保存</span></div><div id="history-list"><p class="side-empty">从第一个研究问题开始。<br>检索记录会自动留在这里。</p></div></section>
       <section class="side-card external-card"><div class="side-heading"><h2>更多学术入口</h2><span>拓展查找 ↗</span></div><p>把更多数据库放在一起。部分平台需要机构账号或登录。</p><div class="external-grid" id="external-links"></div><button class="copy-query" id="copy-query">复制当前检索词 ⧉</button><div class="external-foot">支持关键词直达的平台会带上当前主题；其它入口需在站内粘贴关键词。不计入自动检索结果。</div></section>
       <section class="workspace-note"><span class="note-symbol">◈</span><div><strong>你的文献，留在你的电脑。</strong><p>收藏和历史记录保存在本地。检索时只向所选公开数据源发送关键词。</p></div></section>
     </aside>
   </div>
-  <footer><span>论文雷达 <span class="footer-dot">/</span> 为专注研究留出空间</span><span>LOCAL FIRST · OPEN DISCOVERY</span></footer>
+  <footer><span>豪哥论文 <span class="footer-dot">/</span> 为专注研究留出空间</span><span>LOCAL FIRST · OPEN DISCOVERY</span></footer>
 </main>
 <dialog id="export-dialog"><form method="dialog"><button class="dialog-close" aria-label="关闭导出窗口">×</button></form><div class="section-eyebrow">TAKE YOUR RESEARCH WITH YOU</div><h2>把文献带到下一步。</h2><p id="export-description"></p><div class="export-options"><button data-export="ris"><strong>RIS <span>↗</span></strong><small>Zotero / EndNote / Mendeley</small></button><button data-export="bibtex"><strong>BibTeX <span>↗</span></strong><small>LaTeX / Overleaf / JabRef</small></button><button data-export="csv"><strong>CSV <span>↗</span></strong><small>Excel / 表格整理</small></button></div></dialog>
 <dialog id="journal-dialog" aria-labelledby="journal-dialog-title">

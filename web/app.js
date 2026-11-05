@@ -134,7 +134,7 @@ async function showLibrary() {
     state.view='library';state.epoch++;state.papers=data.results;state.selected.clear();state.limit=20;
     $('#hero').hidden=true;showResults();$('#nav-library').classList.add('active');$('#nav-search').classList.remove('active');
     $('#result-eyebrow').textContent='YOUR READING COLLECTION';$('#result-title').textContent='我的收藏';
-    $('#result-subtitle').textContent='值得阅读的论文，留在你的电脑里。';
+    $('#result-subtitle').textContent='值得阅读的论文，随时接着看。';
     $('#source-progress').hidden=true;$('#query-plan').hidden=true;$('#source-errors').hidden=true;$('#pdf-only').checked=false;renderPapers();
   }catch(error){toast(error.message,true);}
 }
@@ -144,7 +144,7 @@ async function toggleFavorite(id) {
     const result=await api('/api/favorite',{id,favorite:!item.favorite});
     item.favorite=result.favorite;
     if(state.view==='library'&&!item.favorite){state.papers=state.papers.filter(p=>p.id!==id);state.selected.delete(id);}
-    renderPapers();refreshCount();toast(result.favorite?'已加入本地收藏':'已取消收藏');
+    renderPapers();refreshCount();toast(result.favorite?'已加入收藏':'已取消收藏');
   }catch(error){toast(error.message,true);}
 }
 function saveFile(content, filename, type) {
@@ -160,7 +160,7 @@ function openExport(ids) {
 async function doExport(kind) {
   try{
     const data=await api('/api/export',{ids:state.exportIds,format:kind});
-    saveFile(data.content,'PaperDesk-'+new Date().toISOString().slice(0,10)+'.'+(kind==='bibtex'?'bib':kind),'text/plain;charset=utf-8');
+    saveFile(data.content,'豪哥论文-'+new Date().toISOString().slice(0,10)+'.'+(kind==='bibtex'?'bib':kind),'text/plain;charset=utf-8');
     $('#export-dialog').close();toast('文献题录已导出');
   }catch(error){toast(error.message,true);}
 }
@@ -170,7 +170,7 @@ async function download(id) {
     const data=await api('/api/download',{id});
     const item=state.papers.find(p=>p.id===id);if(item)item.localFile=data.file.split('/').pop();
     const response=await fetch(data.file);if(!response.ok)throw new Error('本地文件暂不可读，请重试');
-    saveFile(await response.blob(),data.filename,'application/pdf');toast('PDF 已保存到本地资料库，并发送到浏览器下载');
+    saveFile(await response.blob(),data.filename,'application/pdf');toast('PDF 已保存到资料库，并发送到浏览器下载');
   }catch(error){toast(error.message,true);}finally{state.busy.delete(id);renderPapers();}
 }
 function updateExternal(query='') {
@@ -267,7 +267,13 @@ $('.export-options').addEventListener('click',event=>{const button=event.target.
 $('#export-dialog').addEventListener('click',event=>{if(event.target===$('#export-dialog'))$('#export-dialog').close();});
 async function init(){
   updateExternal();
-  try{const status=await api('/api/status');state.token=status.token;$('#favorite-count').textContent=status.favorites;await refreshHistory();}
+  try{const status=await api('/api/status');state.token=status.token;$('#favorite-count').textContent=status.favorites;
+    if(status.deployment==='server'){
+      $('.local-badge').innerHTML='<i></i> 服务器工作空间';$('#history-storage-label').textContent='服务器保存';
+      $('.workspace-note strong').textContent='多端访问同一份文献。';
+      $('.workspace-note p').textContent='收藏、历史和下载文件保存在服务器。检索时向公开学术来源发送关键词。';
+    }
+    await refreshHistory();}
   catch(error){toast('无法连接本地服务，请使用启动脚本重新打开。',true);return;}
   // History is available in the sidebar; a fresh launch intentionally starts clean.
 }
