@@ -21,22 +21,6 @@ python3.11 -m venv "$APP_DIR/.venv"
     --index-url https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 "$APP_DIR/.venv/bin/python" -m unittest discover -s tests -q
 
-# A distinct random application password; no SSH/GitHub credential is stored here.
-umask 077
-if [[ ! -s /etc/nginx/haoge-papers.htpasswd ]]; then
-    APP_PASSWORD=$(openssl rand -hex 16)
-    PASSWORD_HASH=$(printf '%s' "$APP_PASSWORD" | openssl passwd -6 -stdin)
-    printf 'haoge:%s\n' "$PASSWORD_HASH" > /etc/nginx/haoge-papers.htpasswd
-    printf 'Service: Haoge Papers\nURL: http://%s/\nUsername: haoge\nPassword: %s\n' \
-        "$PUBLIC_HOST" "$APP_PASSWORD" > "$DATA_DIR/.access-credentials"
-    chown root:root "$DATA_DIR/.access-credentials"
-    chmod 0600 "$DATA_DIR/.access-credentials"
-    unset APP_PASSWORD PASSWORD_HASH
-fi
-chown root:nginx /etc/nginx/haoge-papers.htpasswd
-chmod 0640 /etc/nginx/haoge-papers.htpasswd
-umask 022
-
 install -m 0644 deploy/haoge-papers.service /etc/systemd/system/haoge-papers.service
 NGINX_CONFIG=/etc/nginx/conf.d/haoge-papers.conf
 if [[ -f $NGINX_CONFIG ]]; then
@@ -54,7 +38,7 @@ import time
 import urllib.request
 for attempt in range(40):
     try:
-        with urllib.request.urlopen('http://127.0.0.1:8766/api/status', timeout=2) as r:
+        with urllib.request.urlopen('http://127.0.0.1:8766/api/health', timeout=2) as r:
             if r.status == 200: break
     except OSError:
         time.sleep(.5)
@@ -63,4 +47,5 @@ else:
 PY
 systemctl enable --now nginx
 systemctl reload nginx
-echo 'Haoge Papers is running. Credentials are stored in /var/lib/haoge-papers/.access-credentials (root only).'
+echo 'Haoge Papers is running with private browser spaces; no account or shared password is required.'
+echo 'Legacy-space recovery information: /var/lib/haoge-papers/.owner-space.json (private).'

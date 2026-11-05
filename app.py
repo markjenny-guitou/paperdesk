@@ -19,6 +19,7 @@ import uuid
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from functools import lru_cache
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -27,6 +28,7 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlparse
 
 import requests
 from journal_catalog import JOURNALS
+from spaces import BrowserSpaces
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get('PAPERDESK_DATA', ROOT / 'data')).resolve()
@@ -42,12 +44,27 @@ JOBS: dict[str, dict] = {}
 LOCK = threading.RLock()
 SEARCH_SLOTS = threading.BoundedSemaphore(3)
 AUTH_TOKEN = secrets.token_urlsafe(32)
+CURRENT_SPACE = ContextVar('paperdesk_space', default=None)
+SPACES = None
 AGENT = 'PaperDesk/0.1 (personal local literature search)'
 
 
+def space_directory(identifier=None):
+    identifier = identifier or CURRENT_SPACE.get()
+    if identifier is None: return DATA  # Core tests and legacy migration only.
+    if SPACES is None: raise RuntimeError('Browser spaces have not been initialized')
+    return SPACES.path(identifier)
+
+
+def download_directory():
+    directory = space_directory() / 'papers'
+    directory.mkdir(exist_ok=True)
+    return directory
+
+
 @contextmanager
-def connect():
-    conn = sqlite3.connect(DB, timeout=20)
+def connect(identifier=None):
+    conn = sqlite3.connect(space_directory(identifier) / 'library.sqlite3', timeout=20)
     conn.row_factory = sqlite3.Row
     try:
         with conn:
@@ -56,8 +73,8 @@ def connect():
         conn.close()
 
 
-def init_db():
-    with connect() as conn:
+def init_db(identifier=None):
+    with connect(identifier) as conn:
         conn.executescript('''
         PRAGMA journal_mode=WAL;
         CREATE TABLE IF NOT EXISTS papers(id TEXT PRIMARY KEY, body TEXT NOT NULL,
@@ -68,6 +85,16 @@ def init_db():
         CREATE TABLE IF NOT EXISTS paper_aliases(alias TEXT PRIMARY KEY, paper_id TEXT NOT NULL);
         ''')
         conn.execute("UPDATE runs SET status='interrupted' WHERE status='running'")
+
+
+def init_spaces():
+    global SPACES
+    SPACES = BrowserSpaces(DATA)
+    SPACES.migrate_legacy(init_db)
+    # Also repair interrupted jobs in pre-existing visitor spaces after a restart.
+    for directory in SPACES.directory.iterdir():
+        if re.fullmatch(r'[a-f0-9]{32}', directory.name) and (directory / 'library.sqlite3').is_file():
+            init_db(directory.name)
 
 
 def now():
@@ -525,7 +552,7 @@ def prepare_results(records, query, options):
 
 
 def snapshot(job):
-    return {k: v for k, v in job.items() if k != '_records'}
+    return {k: v for k, v in job.items() if not k.startswith('_')}
 
 
 def persist(job):
@@ -544,6 +571,7 @@ def source_error(exc):
 
 
 def run_search(job):
+    space_context = CURRENT_SPACE.set(job.get('_space'))
     try:
         with ThreadPoolExecutor(max_workers=5) as pool:
             futures = {pool.submit(ADAPTERS[s], job['searchQuery'], job['options']): s for s in SOURCES
@@ -571,6 +599,7 @@ def run_search(job):
             persist(job)
     finally:
         SEARCH_SLOTS.release()
+        CURRENT_SPACE.reset(space_context)
 
 
 def start_search(payload):
@@ -580,12 +609,15 @@ def start_search(payload):
                                      'review': bool(payload.get('review')), 'journals': payload.get('journals')})
     with LOCK:
         for job in JOBS.values():
-            if job['status'] == 'running' and job['query'] == raw and job['options'] == options:
+            if (job.get('_space') == CURRENT_SPACE.get() and job['status'] == 'running'
+                    and job['query'] == raw and job['options'] == options):
                 return snapshot(job)
+        if sum(j['status'] == 'running' and j.get('_space') == CURRENT_SPACE.get() for j in JOBS.values()) >= 2:
+            raise ValueError('你的空间已有 2 个检索任务在运行，请等待其中一个完成')
         if not SEARCH_SLOTS.acquire(blocking=False): raise ValueError('已有 3 个检索任务在运行，请等一个完成后再试')
         job = dict(id=uuid.uuid4().hex, query=raw, searchQuery=query, options=options, status='running',
                    createdAt=now(), sources={s: dict(state='running', count=0, message='') for s in SOURCES},
-                   results=[], _records=[], _started=time.monotonic())
+                   results=[], _records=[], _started=time.monotonic(), _space=CURRENT_SPACE.get())
         if options['journals']:
             for source in ('arxiv', 'semantic'):
                 job['sources'][source] = dict(state='skipped', count=0, message='此来源不提供准确的期刊筛选，本次跳过')
@@ -620,11 +652,11 @@ def verify_download_url(url):
 
 def download_paper(identifier):
     item = lookup_paper(identifier)
-    target = DOWNLOADS / (identifier + '.pdf')
+    target = download_directory() / (identifier + '.pdf')
     if target.exists(): return dict(file='/files/' + target.name, filename=item['title'] + '.pdf')
     url = item.get('pdf', '')
     if not url: raise ValueError('未找到开放 PDF，请通过论文原文入口访问')
-    temporary = DOWNLOADS / (identifier + '.' + uuid.uuid4().hex + '.part')
+    temporary = download_directory() / (identifier + '.' + uuid.uuid4().hex + '.part')
     try:
         for _ in range(6):
             verify_download_url(url)
@@ -695,6 +727,8 @@ class Handler(SimpleHTTPRequestHandler):
         return str(candidate)
 
     def end_headers(self):
+        if getattr(self, '_space_cookie', None):
+            self.send_header('Set-Cookie', self._space_cookie)
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'no-referrer')
         self.send_header('Cache-Control', 'no-store')
@@ -710,6 +744,55 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(content)
 
     def do_GET(self):
+        self._space_cookie = None
+        route = urlparse(self.path).path
+        if route.startswith('/api/') or route.startswith('/files/'):
+            if self.headers.get('Host', '') not in {f'127.0.0.1:{PORT}', f'localhost:{PORT}'} or self.headers.get('Sec-Fetch-Site') == 'cross-site':
+                return self.send_json(dict(error='请从当前站点页面访问'), 403)
+        if route == '/api/health':
+            health = dict(ok=True, app='PaperDesk', displayName='豪哥论文', mode='browser-spaces')
+            if DEPLOYMENT == 'local': health['root'] = str(ROOT)
+            return self.send_json(health)
+        if not (route.startswith('/api/') or route.startswith('/files/')):
+            return self.handle_get()
+        identifier = SPACES.from_cookie(self.headers.get('Cookie'))
+        if identifier is None and route == '/api/status':
+            try:
+                identifier = SPACES.create(self.client_ip())
+                init_db(identifier)
+                self._space_cookie = SPACES.cookie(identifier, self.is_https())
+            except ValueError as exc:
+                return self.send_json(dict(error=str(exc)), 429)
+        if identifier is None:
+            return self.send_json(dict(error='文献空间尚未就绪，请刷新页面'), 401)
+        context = CURRENT_SPACE.set(identifier)
+        try:
+            return self.handle_get()
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            return
+        finally:
+            CURRENT_SPACE.reset(context)
+
+    def client_ip(self):
+        if self.client_address[0] in ('127.0.0.1', '::1'):
+            forwarded = self.headers.get('X-Real-IP', '')
+            try: return str(ipaddress.ip_address(forwarded))
+            except ValueError: pass
+        return self.client_address[0]
+
+    def is_https(self):
+        return self.client_address[0] in ('127.0.0.1', '::1') and self.headers.get('X-Forwarded-Proto') == 'https'
+
+    def valid_origin(self):
+        origin = self.headers.get('Origin')
+        if not origin: return True  # Non-browser clients still need the private cookie + CSRF token.
+        host = self.headers.get('Host', '')
+        if self.client_address[0] in ('127.0.0.1', '::1'):
+            host = self.headers.get('X-Forwarded-Host') or host
+        parsed = urlparse(origin)
+        return parsed.scheme in ('http', 'https') and parsed.netloc.casefold() == host.casefold()
+
+    def handle_get(self):
         route = urlparse(self.path).path
         if route == '/api/journals':
             return self.send_json(dict(items=JOURNALS, categories=list(dict.fromkeys(j['category'] for j in JOURNALS))))
@@ -717,7 +800,10 @@ class Handler(SimpleHTTPRequestHandler):
             with connect() as conn:
                 count = conn.execute('SELECT COUNT(*) FROM papers WHERE favorite=1').fetchone()[0]
             return self.send_json(dict(ok=True, app='PaperDesk', displayName='豪哥论文', deployment=DEPLOYMENT,
-                                       root=str(ROOT), favorites=count, sources=SOURCES, token=AUTH_TOKEN))
+                                       favorites=count, sources=SOURCES, spaceMode='browser',
+                                       token=SPACES.csrf(CURRENT_SPACE.get())))
+        if route == '/api/space/entry':
+            return self.send_json(dict(key=SPACES.token(CURRENT_SPACE.get())))
         if route == '/api/history':
             with connect() as conn:
                 rows = conn.execute('SELECT id,query,status,created_at,options,snapshot FROM runs ORDER BY created_at DESC LIMIT 16').fetchall()
@@ -732,7 +818,7 @@ class Handler(SimpleHTTPRequestHandler):
             identifier = route.rsplit('/', 1)[-1]
             with LOCK:
                 job = JOBS.get(identifier)
-                if job: return self.send_json(snapshot(job))
+                if job and job.get('_space') == CURRENT_SPACE.get(): return self.send_json(snapshot(job))
             with connect() as conn:
                 row = conn.execute('SELECT snapshot,status FROM runs WHERE id=?', (identifier,)).fetchone()
             if not row: return self.send_json(dict(error='检索记录不存在'), 404)
@@ -744,7 +830,7 @@ class Handler(SimpleHTTPRequestHandler):
         if route.startswith('/files/'):
             name = route.rsplit('/', 1)[-1]
             if not re.fullmatch(r'[a-f0-9]{32}\.pdf', name): return self.send_error(404)
-            target = DOWNLOADS / name
+            target = download_directory() / name
             if not target.exists(): return self.send_error(404)
             self.send_response(200)
             self.send_header('Content-Type', 'application/pdf')
@@ -758,16 +844,37 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
+        self._space_cookie = None
+        identifier = SPACES.from_cookie(self.headers.get('Cookie'))
+        context = CURRENT_SPACE.set(identifier)
+        try:
+            return self.handle_post()
+        finally:
+            CURRENT_SPACE.reset(context)
+
+    def handle_post(self):
         try:
             host = self.headers.get('Host', '')
             allowed = {f'127.0.0.1:{PORT}', f'localhost:{PORT}'}
-            if host not in allowed or self.headers.get('X-PaperDesk-Token') != AUTH_TOKEN:
-                return self.send_json(dict(error='请从本机页面执行操作'), 403)
+            if host not in allowed or not self.valid_origin():
+                return self.send_json(dict(error='请从当前站点页面执行操作'), 403)
+            if self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower() != 'application/json':
+                return self.send_json(dict(error='请求格式不正确'), 415)
+            route = urlparse(self.path).path
+            if route != '/api/space/restore':
+                if CURRENT_SPACE.get() is None:
+                    return self.send_json(dict(error='文献空间尚未就绪，请刷新页面'), 401)
+                if not secrets.compare_digest(self.headers.get('X-PaperDesk-Token', ''), SPACES.csrf(CURRENT_SPACE.get())):
+                    return self.send_json(dict(error='空间校验失败，请刷新页面重试'), 403)
             length = int(self.headers.get('Content-Length', '0'))
             if not 0 < length <= 256000: raise ValueError('请求内容大小不正确')
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict): raise ValueError('请求格式不正确')
-            route = urlparse(self.path).path
+            if route == '/api/space/restore':
+                identifier = SPACES.resolve(payload.get('key'))
+                if identifier is None: return self.send_json(dict(error='空间入口无效，请检查保存的完整链接'), 400)
+                self._space_cookie = SPACES.cookie(identifier, self.is_https())
+                return self.send_json(dict(ok=True))
             if route == '/api/search': return self.send_json(start_search(payload), 202)
             if route == '/api/favorite':
                 item = lookup_paper(str(payload.get('id', '')))
@@ -776,6 +883,7 @@ class Handler(SimpleHTTPRequestHandler):
                     conn.execute('UPDATE papers SET favorite=?,saved_at=? WHERE id=?', (int(favorite), now(), item['id']))
                 with LOCK:
                     for job in JOBS.values():
+                        if job.get('_space') != CURRENT_SPACE.get(): continue
                         for p in job['results']:
                             if p['id'] == item['id']: p['favorite'] = favorite
                 return self.send_json(dict(ok=True, favorite=favorite))
@@ -799,7 +907,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    init_db()
+    init_spaces()
     server = ThreadingHTTPServer(('127.0.0.1', PORT), Handler)
     server.daemon_threads = True
     print(f'PaperDesk ready: http://127.0.0.1:{PORT}', flush=True)

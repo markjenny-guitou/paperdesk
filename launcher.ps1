@@ -30,7 +30,7 @@ function Test-LocalPort {
 
 function Get-LocalStatus {
     try {
-        $request = [System.Net.HttpWebRequest]::Create("$baseUrl/api/status")
+        $request = [System.Net.HttpWebRequest]::Create("$baseUrl/api/health")
         $request.Proxy = $null
         $request.Timeout = 3000
         $request.ReadWriteTimeout = 3000

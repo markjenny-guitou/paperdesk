@@ -7,11 +7,12 @@ cd /opt/haoge-papers
 bash deploy/install-alinux.sh 你的公网IP
 ```
 
-安装脚本会先运行测试，再启动服务。仅为给定 IP 新增 Nginx 虚拟主机，已有其他域名配置保留。后端始终监听 `127.0.0.1:8766`；对外通过 Nginx 的 80 端口访问，所有页面、接口、PDF 下载均要求身份验证。需要在安全组中允许相应的入站端口。
+安装脚本会先运行测试，再启动服务。仅为给定 IP 新增 Nginx 虚拟主机，已有其他域名配置保留。后端始终监听 `127.0.0.1:8766`；对外通过 Nginx 的 80 端口访问，需要在安全组中允许相应的入站端口。
 
-- 网页用户名：`haoge`。
-- 自动生成独立的随机网页密码；root 可读取 `/var/lib/haoge-papers/.access-credentials`。密码不会写入源代码、Git 仓库或安装输出。
-- 初始配置为 HTTP。长期或经不可信网络使用前，应给 Nginx 配置 HTTPS；HTTP Basic 登录本身不加密凭据。也可先通过 SSH 隧道访问后端。
+- 无需账号或共享密码，打开即用。每个浏览器通过随机的私有 Cookie 访问独立空间，其他访客不能访问该空间的数据和 PDF。
+- 独立资料位于 `/var/lib/haoge-papers/spaces/<空间ID>/`；页面可下载专属空间入口，用于换设备或清除 Cookie 后恢复访问。
+- 旧共享资料会复制到所有者空间；专属恢复信息位于 `/var/lib/haoge-papers/.owner-space.json`。该文件与 `.space-secret` 不可上传 Git、公开展示或通过 Nginx 静态目录暴露。
+- 初始配置为 HTTP。长期或经不可信网络使用前，应给 Nginx 配置 HTTPS，避免网络窃听匿名空间的访问凭据。后端 HTTPS 代理头会让 Cookie 自动添加 Secure。
 - 服务器端收藏、历史、题录及 PDF 保存在 `/var/lib/haoge-papers`；不自动上传本机的历史和收藏。
 - 服务账号为 `haogepapers`，以普通权限运行，开机启动、异常重启，最大内存为 512 MiB。
 

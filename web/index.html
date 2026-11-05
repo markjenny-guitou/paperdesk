@@ -10,12 +10,12 @@
 <body>
 <header class="topbar"><a class="brand" href="/" aria-label="豪哥论文首页"><span class="brand-mark">h<span>·</span></span><span>豪哥论文 <small>HAOGE PAPERS</small></span></a>
   <nav aria-label="主导航"><button class="nav-button active" id="nav-search">发现论文</button><button class="nav-button" id="nav-library">我的收藏 <span id="favorite-count">0</span></button></nav>
-  <div class="local-badge"><i></i> 本地工作空间</div>
+  <div class="local-badge"><i></i> 独立文献空间</div>
 </header>
 <main class="workspace">
   <section class="hero" id="hero"><div class="eyebrow"><span></span> LESS SEARCHING, MORE DISCOVERY</div>
     <h1>把找论文的时间，<br class="mobile-break">还给研究。</h1>
-    <p class="intro">一个入口，汇总多个学术来源。找到、筛选、收藏，一气呵成。</p>
+    <p class="intro">打开即用，自动多源查找。历史和收藏保存在你的独立空间。</p>
     <form id="search-form" class="search-box">
       <label for="query" class="sr-only">研究主题或论文标题</label>
       <div class="input-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" name="query" maxlength="500" placeholder="你正在研究什么？输入主题、关键词或论文标题…" autocomplete="off" required><button id="search-button" type="submit">开始检索 <span aria-hidden="true">↗</span></button></div>
@@ -43,7 +43,7 @@
 
     <aside class="sidebar"><section class="side-card history-card"><div class="side-heading"><h2>最近检索</h2><span id="history-storage-label">本地保存</span></div><div id="history-list"><p class="side-empty">从第一个研究问题开始。<br>检索记录会自动留在这里。</p></div></section>
       <section class="side-card external-card"><div class="side-heading"><h2>更多学术入口</h2><span>拓展查找 ↗</span></div><p>把更多数据库放在一起。部分平台需要机构账号或登录。</p><div class="external-grid" id="external-links"></div><button class="copy-query" id="copy-query">复制当前检索词 ⧉</button><div class="external-foot">支持关键词直达的平台会带上当前主题；其它入口需在站内粘贴关键词。不计入自动检索结果。</div></section>
-      <section class="workspace-note"><span class="note-symbol">◈</span><div><strong>你的文献，留在你的电脑。</strong><p>收藏和历史记录保存在本地。检索时只向所选公开数据源发送关键词。</p></div></section>
+      <section class="workspace-note"><span class="note-symbol">◈</span><div><strong>免登录，文献空间独立。</strong><p>同一浏览器会接续你的历史和收藏。保存专属入口，换设备也能回到当前空间。</p><button id="space-entry" class="space-entry" title="下载专属入口；持有该链接的人可以访问当前空间，请自行保管">保存我的空间入口 ↓</button></div></section>
     </aside>
   </div>
   <footer><span>豪哥论文 <span class="footer-dot">/</span> 为专注研究留出空间</span><span>LOCAL FIRST · OPEN DISCOVERY</span></footer>

@@ -265,16 +265,30 @@ $('#nav-search').addEventListener('click',()=>{state.view='search';state.epoch++
 $('#export-button').addEventListener('click',()=>openExport(state.selected.size?[...state.selected]:filteredPapers().map(p=>p.id)));
 $('.export-options').addEventListener('click',event=>{const button=event.target.closest('[data-export]');if(button)doExport(button.dataset.export);});
 $('#export-dialog').addEventListener('click',event=>{if(event.target===$('#export-dialog'))$('#export-dialog').close();});
+$('#space-entry').addEventListener('click',async()=>{
+  try{
+    const data=await api('/api/space/entry');
+    const url=location.origin+'/#space='+encodeURIComponent(data.key);
+    saveFile('豪哥论文 · 我的空间入口\n\n'+url+'\n\n请自行保管，不要公开分享。持有此链接的人可以访问当前空间。\n换浏览器、换设备或清除 Cookie 后，可用此链接找回原空间。\n此链接用于恢复访问，不能代替服务器数据备份。\n','豪哥论文-我的空间入口.txt','text/plain;charset=utf-8');
+    toast('空间入口已下载，请自行保管；换设备时打开文件中的链接即可');
+  }catch(error){toast(error.message,true);}
+});
+window.addEventListener('hashchange',()=>{if(new URLSearchParams(location.hash.slice(1)).has('space'))location.reload();});
 async function init(){
   updateExternal();
+  const entry=new URLSearchParams(location.hash.slice(1)).get('space');
+  if(entry){
+    history.replaceState(null,'',location.pathname+location.search);
+    try{await api('/api/space/restore',{key:entry});toast('已回到保存的文献空间');}
+    catch(error){toast(error.message+'。当前会进入一个独立空间。',true);}
+  }
   try{const status=await api('/api/status');state.token=status.token;$('#favorite-count').textContent=status.favorites;
     if(status.deployment==='server'){
-      $('.local-badge').innerHTML='<i></i> 服务器工作空间';$('#history-storage-label').textContent='服务器保存';
-      $('.workspace-note strong').textContent='多端访问同一份文献。';
-      $('.workspace-note p').textContent='收藏、历史和下载文件保存在服务器。检索时向公开学术来源发送关键词。';
+      $('#history-storage-label').textContent='当前空间';
+      $('.workspace-note p').textContent='当前空间的资料保存在服务器，其他访客看不到。请保存专属入口，换设备时继续使用。';
     }
     await refreshHistory();}
-  catch(error){toast('无法连接本地服务，请使用启动脚本重新打开。',true);return;}
+  catch(error){toast('无法准备文献空间，请确认服务正在运行并刷新页面重试。',true);return;}
   // History is available in the sidebar; a fresh launch intentionally starts clean.
 }
 init();
