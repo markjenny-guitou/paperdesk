@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="论文雷达，本地运行的多源文献检索与收藏工作台。">
+  <title>论文雷达 · PaperDesk</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/" aria-label="论文雷达首页"><span class="brand-mark">p<span>·</span></span><span>论文雷达 <small>PAPERDESK</small></span></a>
+  <nav aria-label="主导航"><button class="nav-button active" id="nav-search">发现论文</button><button class="nav-button" id="nav-library">我的收藏 <span id="favorite-count">0</span></button></nav>
+  <div class="local-badge"><i></i> 本地工作空间</div>
+</header>
+<main class="workspace">
+  <section class="hero" id="hero"><div class="eyebrow"><span></span> LESS SEARCHING, MORE DISCOVERY</div>
+    <h1>把找论文的时间，<br class="mobile-break">还给研究。</h1>
+    <p class="intro">一个入口，汇总多个学术来源。找到、筛选、收藏，一气呵成。</p>
+    <form id="search-form" class="search-box">
+      <label for="query" class="sr-only">研究主题或论文标题</label>
+      <div class="input-row"><span class="search-icon" aria-hidden="true">⌕</span><input id="query" name="query" maxlength="500" placeholder="你正在研究什么？输入主题、关键词或论文标题…" autocomplete="off" required><button id="search-button" type="submit">开始检索 <span aria-hidden="true">↗</span></button></div>
+      <div class="search-bottom"><span>中英文均可 · 常见中文术语自动转换</span><div class="search-options"><label for="years" class="sr-only">年份范围</label><select id="years"><option value="all">不限年份</option><option value="3">近 3 年</option><option value="5">近 5 年</option><option value="10">近 10 年</option><option value="custom">自定义年份</option></select><span id="custom-years" hidden><input id="year-from" type="number" min="1800" max="2100" placeholder="起始年" aria-label="起始年份">—<input id="year-to" type="number" min="1800" max="2100" placeholder="结束年" aria-label="结束年份"></span><label class="review-option"><input type="checkbox" id="review">优先找综述</label></div></div>
+      <div class="journal-filter-row"><button type="button" id="journal-open" class="journal-trigger" aria-haspopup="dialog"><span>期刊筛选</span><strong id="journal-summary">不限期刊</strong><span aria-hidden="true">⌄</span></button><span class="journal-filter-hint">可多选 · 点击开始检索生效</span><button type="button" id="journal-reset" hidden>清空</button></div>
+      <div id="journal-chips" class="journal-chips" hidden aria-label="已选择的期刊"></div>
+    </form>
+    <div class="suggestions"><span>试着搜</span><button data-query="图神经网络综述">图神经网络综述 <span>↗</span></button><button data-query="肠道菌群与抑郁症">肠道菌群与抑郁症 <span>↗</span></button><button data-query="perovskite solar cell stability">钙钛矿太阳能电池稳定性 <span>↗</span></button></div>
+  </section>
+
+  <div class="content-grid">
+    <section class="main-column" aria-label="论文检索结果">
+      <div class="welcome-panel" id="welcome"><div class="section-eyebrow">为研究而设计</div><h2>少切几个标签页，<br>多看几篇好论文。</h2><p>不必逐个选库、反复输入关键词。提交一次检索，来源陆续返回，结果自动合并。</p>
+        <div class="feature-grid"><article><span class="feature-symbol">⌁</span><h3>跨库查找</h3><p>覆盖综合学术、预印本和生物医学来源。</p></article><article><span class="feature-symbol">≋</span><h3>整理好再给你</h3><p>按 DOI 和标题去重，按主题匹配重新排序。</p></article><article><span class="feature-symbol">▱</span><h3>留下有用的</h3><p>收藏存本地，一键导出到 Zotero 或 EndNote。</p></article></div>
+        <div class="source-line"><span>PUBLIC SOURCES</span><div>Crossref <b>·</b> arXiv <b>·</b> Europe PMC <b>·</b> PubMed <b>·</b> OpenAlex <b>·</b> Semantic Scholar</div></div>
+      </div>
+
+      <section id="results-panel" hidden><div class="results-heading"><div><div class="section-eyebrow" id="result-eyebrow">DISCOVERY</div><h2 id="result-title">检索结果</h2><p id="result-subtitle"></p></div><div class="result-count"><strong id="result-count">0</strong><span>篇论文</span></div></div>
+        <div id="source-progress" class="source-progress" aria-live="polite"></div><div id="query-plan" class="query-plan" hidden></div>
+        <details id="source-errors" class="source-errors" hidden><summary>查看来源连接情况</summary><div id="source-error-list"></div></details>
+        <div class="results-toolbar"><div class="toolbar-left"><label class="select-all"><input id="select-all" type="checkbox" aria-label="选择所有当前显示的论文"><span id="selection-count">选择论文</span></label><label class="pdf-filter"><input id="pdf-only" type="checkbox">有开放 PDF</label></div><div class="toolbar-right"><select id="sort" aria-label="论文排序"><option value="relevance">相关性优先</option><option value="recent">最新发表</option><option value="cited">引用次数</option></select><button class="button-outline" id="export-button">导出 <span>↓</span></button></div></div>
+        <div id="papers" class="paper-list" aria-live="polite"></div><button id="load-more" class="load-more" hidden>显示更多论文</button>
+      </section>
+    </section>
+
+    <aside class="sidebar"><section class="side-card history-card"><div class="side-heading"><h2>最近检索</h2><span>本地保存</span></div><div id="history-list"><p class="side-empty">从第一个研究问题开始。<br>检索记录会自动留在这里。</p></div></section>
+      <section class="side-card external-card"><div class="side-heading"><h2>更多学术入口</h2><span>拓展查找 ↗</span></div><p>把更多数据库放在一起。部分平台需要机构账号或登录。</p><div class="external-grid" id="external-links"></div><button class="copy-query" id="copy-query">复制当前检索词 ⧉</button><div class="external-foot">支持关键词直达的平台会带上当前主题；其它入口需在站内粘贴关键词。不计入自动检索结果。</div></section>
+      <section class="workspace-note"><span class="note-symbol">◈</span><div><strong>你的文献，留在你的电脑。</strong><p>收藏和历史记录保存在本地。检索时只向所选公开数据源发送关键词。</p></div></section>
+    </aside>
+  </div>
+  <footer><span>论文雷达 <span class="footer-dot">/</span> 为专注研究留出空间</span><span>LOCAL FIRST · OPEN DISCOVERY</span></footer>
+</main>
+<dialog id="export-dialog"><form method="dialog"><button class="dialog-close" aria-label="关闭导出窗口">×</button></form><div class="section-eyebrow">TAKE YOUR RESEARCH WITH YOU</div><h2>把文献带到下一步。</h2><p id="export-description"></p><div class="export-options"><button data-export="ris"><strong>RIS <span>↗</span></strong><small>Zotero / EndNote / Mendeley</small></button><button data-export="bibtex"><strong>BibTeX <span>↗</span></strong><small>LaTeX / Overleaf / JabRef</small></button><button data-export="csv"><strong>CSV <span>↗</span></strong><small>Excel / 表格整理</small></button></div></dialog>
+<dialog id="journal-dialog" aria-labelledby="journal-dialog-title">
+  <div class="journal-dialog-heading"><div><div class="section-eyebrow">REFINE YOUR DISCOVERY</div><h2 id="journal-dialog-title">在哪些期刊中查找？</h2></div><button type="button" class="dialog-close" id="journal-cancel" aria-label="取消期刊选择">×</button></div>
+  <p class="journal-intro" id="journal-catalog-note">正在读取期刊目录…</p>
+  <div class="journal-tools"><label class="sr-only" for="journal-search">搜索期刊名称或缩写</label><input id="journal-search" type="search" placeholder="搜索刊名、中文名称或缩写，例如 Nature / JACS" autocomplete="off"><label class="sr-only" for="journal-category">期刊学科</label><select id="journal-category"><option value="">全部学科</option></select></div>
+  <div class="journal-selection-tools"><span id="journal-visible-count"></span><div><button type="button" id="journal-select-visible">全选当前列表</button><button type="button" id="journal-clear">清空已选</button></div></div>
+  <div id="journal-list" class="journal-list" aria-label="期刊多选列表"></div>
+  <div class="journal-custom"><label for="journal-custom-name">没找到？补充完整刊名</label><div><input id="journal-custom-name" maxlength="240" placeholder="输入期刊官方全称"><button type="button" id="journal-add">添加</button></div><small>预置目录不代表数据库完整收录；中文期刊的结果取决于公开来源。</small></div>
+  <div class="journal-dialog-footer"><span id="journal-draft-count" role="status">已选 0 本</span><div><button type="button" id="journal-dismiss">取消</button><button type="button" id="journal-apply">应用筛选</button></div></div>
+</dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+</body></html>
